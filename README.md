@@ -2,7 +2,7 @@
 
 ## This repo is to show the use of alt data provided at the DataScrum AltData Hackathon
 
-Need the have the following directory strcture set up after pull. mkdir data
+Need the following directory strcture set up after pull. mkdir data
 
 ```bash
   data
