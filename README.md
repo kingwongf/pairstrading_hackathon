@@ -89,8 +89,7 @@ Need the have the following directory strcture set up after pull. mkdir data
             ├── SimilarWeb-DataLocation.docx
             ├── websites_19_07.csv
             ├── websites_19_07.pkl
-'''
-
+```
 Then you need to run prep_OpenData.py and REIT_pred.ipynb. Then pairs_trading_backtest.py and pairs_trading_strat.py after.
 
                 
