@@ -90,7 +90,7 @@ Need the following directory strcture set up after pull. mkdir data
             ├── websites_19_07.csv
             ├── websites_19_07.pkl
 ```
-Then you need to run prep_OpenData.py and REIT_pred.ipynb. Then pairs_trading_backtest.py and pairs_trading_strat.py after.
+Then you need to run prep_OpenData.py and eda_REIT.py. Then pairs_trading_backtest.py and pairs_trading_strat.py after.
 
                 
                 
