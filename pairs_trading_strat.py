@@ -4,6 +4,13 @@ from functools import reduce
 import re
 import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib.pyplot as plt
+
+from collections import OrderedDict
+import warnings
+
+
+
 import pickle
 from sklearn import preprocessing as prep
 
@@ -43,10 +50,12 @@ ecommerce_apparels_price_li, ecommerce_apparels_prices = prices_clean(ecommerce_
 ecommerce_apparels_prices = ecommerce_apparels_prices[ecommerce_apparels_prices.columns.drop(list(ecommerce_apparels_prices.filter(regex='Volume')))]
 ecommerce_apparels_prices = ecommerce_apparels_prices['2009-06-01':]
 #print(ecommerce_apparels_prices)
-ecommerce_apparels_prices.to_pickle("data/ecommerce_apparels_prices.pkl")
+
+## TODO to pickle/ comment out if debug
+# ecommerce_apparels_prices.to_pickle("data/ecommerce_apparels_prices.pkl")
 
 ## TODO read price pickle
-# ecommerce_apparels_prices = pd.read_pickle("data/ecommerce_apparels_prices.pkl")
+ecommerce_apparels_prices = pd.read_pickle("data/ecommerce_apparels_prices.pkl")
 
 
 # Compute the correlation matrix
@@ -149,12 +158,12 @@ close_pairs.columns = pair_names
 
 ## TODO close pairs to pickle
 
-close_pairs.to_pickle("data/backtest/close_pairs.pkl")
+# close_pairs.to_pickle("data/backtest/close_pairs.pkl")
 
 close_names = ['ASOMY_Close', 'GPS_Close', 'HNNMY_Close', 'URBN_Close', 'ETSY_Close', 'JWN_Close', 'TJX_Close']
 apparels_closes = ecommerce_apparels_prices[close_names]
 
-apparels_closes.to_pickle("data/backtest/apparels_closes.pkl")
+# apparels_closes.to_pickle("data/backtest/apparels_closes.pkl")
 
 def find_actual_dates(col_name1, col_name2):
     actual_releases_index1 = ecommerce_apparels_actuals_pivot_by_tickers[col_name1].dropna().index
@@ -227,12 +236,46 @@ close_pairs_tickers = [['ASOMY_Close', 'GPS_Close'],
                         ['ASOMY_Close','TJX_Close'],
                         ['JWN_Close', 'URBN_Close']]
 
+traffic_close_price_mapping = {'ASC': 'ASOMY_Close',
+                               'GPS': 'GPS_Close',
+                               'ETSY': 'ETSY_Close',
+                               'URBN US': 'URBN_Close',
+                               'JWN US': 'JWN_Close',
+                               'TJX US': 'TJX_Close'}
+
 # print(ecommerce_apparels_estimates_pivot_by_tickers.columns)
 # print(ecommerce_apparels_estimates_pivot_by_tickers.index)
 revenues = []
 successful_signals = []
 comparables = []
 traffic_signals = []
+signal_close_corr_dict = {}
+signal_close_corr_df = pd.DataFrame([],columns=['close_ticker','traffic_signal','coeff'])
+
+def get_best_corr_func(traffic_ticker_from_li):
+    close_ticker = traffic_close_price_mapping[traffic_ticker_from_li]
+    traffic_ticker = pair_specific[ten_ma]
+    close = apparels_closes[close_ticker]
+    signal_fast = pair_specific[ten_ma]
+    signal_slow = pair_specific[two_hundred_li[d]]
+    corr_check = pd.merge(close, signal_fast, left_index=True, right_index=True, how='inner')
+    corr = corr_check[close.name].corr(corr_check[signal_fast.name])
+    signal_close_corr_dict[signal_fast.name] = corr
+
+
+
+def get_best_corr_func2(traffic_ticker_from_li):
+    close_ticker = traffic_close_price_mapping[traffic_ticker_from_li]
+    traffic_ticker = pair_specific[ten_ma]
+    close = apparels_closes[close_ticker]
+    signal_fast = pair_specific[ten_ma]
+    signal_slow = pair_specific[two_hundred_li[d]]
+    corr_check = pd.merge(close, signal_fast, left_index=True, right_index=True, how='inner')
+    corr = corr_check[close.name].corr(corr_check[signal_fast.name])
+    corr_temp = pd.DataFrame([[close_ticker, ten_ma, corr]], columns=['close_ticker','traffic_signal','coeff'])
+    return corr_temp
+    # signal_close_corr_df = signal_close_corr_df.append(corr_temp, ignore_index = True)
+
 for i, idx_list in enumerate(actual_dates):
     # x = traffic[[col for col in traffic.columns.tolist() if 'ASC' in col or 'GPS' in col]].dropna()
     ## TODO find actuals
@@ -266,7 +309,6 @@ for i, idx_list in enumerate(actual_dates):
     pair_specific_online_traffic_10_MA = pair_specific_online_traffic.ewm(span=100).mean()      ## TODO change 10/100 here
     pair_specific_online_traffic_10_MA.columns = "100_MA_"+ pair_specific_online_traffic_10_MA.columns ## TODO change 10/100 here
 
-    #print(len(pair_specific_online_traffic_10_MA.columns.tolist()))
     pair_specific_online_traffic_MAs = pd.merge_asof(pair_specific_online_traffic_10_MA.sort_index(), pair_specific_online_traffic_200_MA.sort_index(), left_index=True, right_index=True,
                                    direction='forward', tolerance=pd.Timedelta('1d'))
 
@@ -285,16 +327,6 @@ for i, idx_list in enumerate(actual_dates):
         crit2 = col_fast < col_slow
         return col_fast[(crit1) & (crit2)]
 
-
-    # print(len(pair_specific.columns.tolist()))
-    # actual_dates_only_dates.index = actual_dates_only_dates.index.tz_convert(None)
-    # traffic_gpby_actual_dates = pd.merge_asof(pair_specific_online_traffic.sort_index(),actual_dates_only_dates.sort_index(), left_index=True, right_index=True,
-    #                                              direction='forward', tolerance=pd.Timedelta('1d'))
-    # print(traffic_gpby_actual_dates.head(10))
-    # traffic_gpby_actual_dates['actuals_release_date'] = traffic_gpby_actual_dates['actuals_release_date'].fillna(method='bfill') ## we want to predict to actual release date, so backfill actual release date
-    # print(traffic_gpby_actual_dates['actuals_release_date'])
-    # traffic_pair_specific = traffic_gpby_actual_dates.groupby('actuals_release_date').agg('sum')
-    # print(traffic_pair_specific)
 
     ## TODO join everything together
 
@@ -340,18 +372,57 @@ for i, idx_list in enumerate(actual_dates):
 
         temp2['actual_minus_est'] = temp2[rev2.columns.tolist()[0]] - temp2[est2.columns.tolist()[0]]
 
-
         ae_sides_2 = pd.DataFrame(np.sign(temp2['actual_minus_est'].dropna()), index=np.sign(temp2['actual_minus_est'].dropna()).index)
         ae_sides_2['actual_dates'] = ae_sides_2.index
 
-        # axs[1].plot(pair_specific[[col for col in actual_dates_df.columns.tolist() if actuals_ticker_list[i][0] in col or actuals_ticker_list[i][1] in col]], label="Revenue")
-        # axs[1].plot(pair_specific[[col for col in ecommerce_apparels_estimates_pivot_by_tickers.columns.tolist() if "Mean_" +
-        #                                                                           actuals_ticker_list[i][0] in col or "Mean_" + actuals_ticker_list[i][1] in col]], label="Estimates")
         figure = plt.gcf()
         figure.set_size_inches(12, 8)
         # plt.show()
 
         # plt.savefig("data/revenues/move_avgs/" + "200_" + ten_ma + ".png",  dpi = 100)
+        plt.close()
+
+        ## TODO to find the best MA pairs, we find the ones which are most correlated to close prices
+
+
+
+        if traffic_ticker_list[i][0] in ten_ma:
+            # get_best_corr_func(traffic_ticker_list[i][0])
+            signal_close_corr_df = signal_close_corr_df.append(get_best_corr_func2(traffic_ticker_list[i][0]))
+
+        elif traffic_ticker_list[i][1] in ten_ma:
+            # get_best_corr_func(traffic_ticker_list[i][1])
+            signal_close_corr_df = signal_close_corr_df.append(get_best_corr_func2(traffic_ticker_list[i][1]))
+
+
+
+        """
+        if traffic_ticker_list[i][0] in ten_ma:
+            close_ticker = traffic_close_price_mapping[traffic_ticker_list[i][0]]
+            traffic_ticker = pair_specific[ten_ma]
+            close = apparels_closes[close_ticker]
+            signal_fast = pair_specific[ten_ma]
+            signal_slow = pair_specific[two_hundred_li[d]]
+            corr_check = pd.merge(close, signal_fast, left_index=True, right_index=True, how='inner')
+            corr = corr_check[close.name].corr(corr_check[signal_fast.name])
+            signal_close_corr_dict[signal_fast.name] = corr
+
+
+
+        elif traffic_ticker_list[i][1] in ten_ma:
+        
+            close_ticker = traffic_close_price_mapping[traffic_ticker_list[i][1]]
+            traffic_ticker = pair_specific[ten_ma]
+            close = apparels_closes[close_ticker]
+            signal_fast = pair_specific[ten_ma]
+            signal_slow = pair_specific[two_hundred_li[d]]
+            corr_check = pd.merge(close, signal_fast, left_index=True, right_index=True, how='inner')
+            corr = corr_check[close.name].corr(corr_check[signal_fast.name])
+            signal_close_corr_dict[signal_fast.name] = corr
+        """
+
+
+
 
         ## TODO get upcross and downcross of MAs and join back to actuals and estimates df
 
@@ -399,16 +470,24 @@ for i, idx_list in enumerate(actual_dates):
     # plt.show()
     # revenues.append(rev)
 
-##
-pickle.dump(traffic_signals, open("data/backtest/traffic_signals.pkl", 'wb'))
+
+signal_close_corr_df = signal_close_corr_df.sort_values(by=['close_ticker','coeff'], ascending=False)
+
+signal_close_corr_df.drop_duplicates().to_csv("data/backtest/corr_signal_close.csv")
+
+# top_corr_signal = signal_close_corr_df.groupby("close_ticker").agg("max")
+
+
+## TODO to pickle/ comment out if debug
+# pickle.dump(traffic_signals, open("data/backtest/traffic_signals.pkl", 'wb'))
 
     # print(actual_dates_df)
 
     # traffic_gpby_actual_dates = traffic_gpby_actual_dates.gr
 
-print(successful_signals)
 
-pickle.dump(successful_signals, open("data/backtest/successful_signals.pkl", 'wb'))
+## TODO to pickle/ comment out if debug
+# pickle.dump(successful_signals, open("data/backtest/successful_signals.pkl", 'wb'))
 
 ## TODO for 100MA/ 200MA crosses with sum
 ## [(['estimates_actuals_Actual Value_URBN.O_REV'], '100_MA_mobile_visit_duration_URBN US'),
@@ -530,6 +609,10 @@ asos_fundamentals.index = pd.to_datetime(asos_fundamentals.date)
 # print("fundamentals dates ", asos_fundamentals.sort_index().index)
 gap_fundamentals = pd.read_csv("data/OpenData/Fundamentals/fundamentals_Gap Inc US.csv")
 gap_fundamentals.index = pd.to_datetime(gap_fundamentals.date)
+
+
+
+
 '''
 
 y1 = asos_fundamentals['totalRevenue']
