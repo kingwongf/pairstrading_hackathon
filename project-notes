@@ -9,7 +9,9 @@ p&l with our model vs just pairs vs buy & hold vs s&p
 Update backtesting for % returns
 
 Explain our model: 
-We identified highly correlated pairs using daily close price to generate a correlation map
+We identified cointegreated pairs of stocks in the e commerce/ apparels (consumer/ retail stocks) using augmented Dicky-Fuller test.
+
+## changed to above , correlated pairs using daily close price to generate a correlation map
 
 comparing 100d moving average with 200d moving average to signal anticipated errors in earnings consensus which augments
 and improves our pairs trading model (need to explain why comparing 100 v 200d might be a good signal)
