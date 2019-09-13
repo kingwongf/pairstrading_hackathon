@@ -4,6 +4,8 @@ from functools import reduce
 import re
 import matplotlib.pyplot as plt
 import seaborn as sns
+import statsmodels.api as sm
+
 import matplotlib.pyplot as plt
 
 from collections import OrderedDict
@@ -18,9 +20,9 @@ from sklearn.metrics import mean_squared_error
 np.set_printoptions(threshold=np.inf)
 
 from datetime import datetime
-pd.set_option('display.max_columns', None)  # or 1000
-pd.set_option('display.max_rows', 1000)  # or 1000
-pd.set_option('display.max_colwidth', 199)  # or 199
+# pd.set_option('display.max_columns', None)  # or 1000
+#pd.set_option('display.max_rows', 1000)  # or 1000
+#pd.set_option('display.max_colwidth', 199)  # or 199
 
 def prices_clean(files_path):
     prices_mega_li = []
@@ -52,7 +54,7 @@ ecommerce_apparels_prices = ecommerce_apparels_prices['2009-06-01':]
 #print(ecommerce_apparels_prices)
 
 ## TODO to pickle/ comment out if debug
-# ecommerce_apparels_prices.to_pickle("data/ecommerce_apparels_prices.pkl")
+ecommerce_apparels_prices.to_pickle("data/ecommerce_apparels_prices.pkl")
 
 ## TODO read price pickle
 ecommerce_apparels_prices = pd.read_pickle("data/ecommerce_apparels_prices.pkl")
@@ -96,7 +98,28 @@ sol = (absCorr.where(np.triu(np.ones(absCorr.shape), k=1).astype(np.bool))
                  .sort_values(ascending=False)).to_frame()
 sol['pairs'] = sol.index
 sol = sol.set_index(np.arange(len(sol.index)))
-# print(sol)
+
+
+
+adfStats = []
+
+
+for i in range(len(sol)):
+    # close_1, close_2 = sol['pairs'][i][0], sol['pairs'][i][1]
+    pair_dropna = ecommerce_apparels_prices[list(sol['pairs'][i])].dropna()
+    model = sm.regression.linear_model.OLS(pair_dropna[pair_dropna.columns[0]], pair_dropna[pair_dropna.columns[1]])
+    results = model.fit()
+    pairAdfStats = sm.tsa.stattools.adfuller(results.resid)
+    adfStats.append(pairAdfStats)
+
+sol['adfStats'] = adfStats
+coIntegrate = [(abs(x[0]) > abs(x[4]['10%'])) for x in adfStats]
+sol['cointegration'] = coIntegrate
+
+
+cointegratedPairs = sol[coIntegrate]
+cointegratedPairs = cointegratedPairs.reset_index()
+
 
 
 ## TODO readin fundamentals for pairs > 0.600
@@ -106,8 +129,12 @@ sol = sol.set_index(np.arange(len(sol.index)))
 2   0.707096   (HNNMY_Close, URBN_Close)
 3   0.705522   (ETSY_Close, HNNMY_Close)
 4   0.682776      (JWN_Close, TJX_Close)
-5   0.665345    (ASOMY_Close, TJX_Close)
+5   0.665345    (ASOMY_Close, TJX_Close) ## cointegrated 
 6   0.662210     (JWN_Close, URBN_Close)
+7                 (GPS_Close, JWN_Close) ## cointegrated
+8                (EBAY_Close, GPS_Close) ## cointegrated
+9             (ASOMY_Close, HNNMY_Close) ## cointegrated
+10              (EBAY_Close, URBN_Close) ## cointegrated    
 '''
 ##
 
@@ -115,9 +142,11 @@ sol = sol.set_index(np.arange(len(sol.index)))
 
 estimatesActuals = pd.read_csv("data/Refinitiv/ESTIMATESACTUALS.csv")
 estimatesActuals = estimatesActuals[(estimatesActuals.Instrument == 'ASOS.L') | (estimatesActuals.Instrument == 'GPS')|
-                                    (estimatesActuals.Instrument == 'ETSY.O')|(estimatesActuals.Instrument == 'HMb.ST')|
-                                    (estimatesActuals.Instrument == 'HMb.ST')|(estimatesActuals.Instrument == 'URBN.O')|
-                                    (estimatesActuals.Instrument == 'JWN')|(estimatesActuals.Instrument == 'TJX')]
+                                    (estimatesActuals.Instrument == 'HMb.ST')| (estimatesActuals.Instrument == 'URBN.O')|
+                                    (estimatesActuals.Instrument == 'JWN')|(estimatesActuals.Instrument == 'TJX')|(estimatesActuals.Instrument == 'EBAY.O')]
+
+# commented out for | (estimatesActuals.Instrument == 'ETSY.O')| as it is not cointegreated
+
 estimatesActuals.columns = estimatesActuals.columns.map(lambda x: "estimates_actuals_" + x)
 estimatesActuals.index = pd.to_datetime(estimatesActuals.estimates_actuals_Date)
 ecommerce_apparels_estimates_pivot_by_tickers = estimatesActuals.pivot_table(index=estimatesActuals.index, values=['estimates_actuals_Mean', 'estimates_actuals_High',
@@ -138,17 +167,17 @@ ecommerce_apparels_actuals_pivot_by_tickers.columns = ecommerce_apparels_actuals
 #print(ecommerce_apparels_actuals_pivot_by_tickers["estimates_actuals_High_ASOS.L_REV"])
 
 #print(ecommerce_apparels_actuals_pivot_by_tickers)
-## TODO plot actual releases affect on price and ratio
+## TODO plot actual releases affect on price and ratio and export ratios data
 
-pair_names = ['ASOMY_Close to GPS_Close', 'ASOMY_Close to ETSY_Close', 'HNNMY_Close to URBN_Close', 'ETSY_Close, to HNNMY_Close', 'JWN_Close to TJX_Close', 'ASOMY_Close to TJX_Close', 'JWN_Close to URBN_Close']
+pair_names = ['ASOMY_Close to TJX_Close', 'GPS_Close to JWN_Close',
+              'EBAY_Close to GPS_Close', 'ASOMY_Close, to HNNMY_Close',
+              'EBAY_Close to URBN_Close']
 
-close_pairs = pd.DataFrame([ecommerce_apparels_prices['ASOMY_Close'] / ecommerce_apparels_prices['GPS_Close'],
-                            ecommerce_apparels_prices['ASOMY_Close'] / ecommerce_apparels_prices['ETSY_Close'],
-                            ecommerce_apparels_prices['HNNMY_Close'] / ecommerce_apparels_prices['URBN_Close'],
-                            ecommerce_apparels_prices['ETSY_Close']  / ecommerce_apparels_prices['HNNMY_Close'],
-                            ecommerce_apparels_prices['JWN_Close']   / ecommerce_apparels_prices['TJX_Close'],
-                            ecommerce_apparels_prices['ASOMY_Close'] / ecommerce_apparels_prices['TJX_Close'],
-                            ecommerce_apparels_prices['JWN_Close']   / ecommerce_apparels_prices['URBN_Close']])
+close_pairs = pd.DataFrame([ecommerce_apparels_prices['ASOMY_Close'] / ecommerce_apparels_prices['TJX_Close'],
+                            ecommerce_apparels_prices['GPS_Close'] / ecommerce_apparels_prices['JWN_Close'],
+                            ecommerce_apparels_prices['EBAY_Close'] / ecommerce_apparels_prices['GPS_Close'],
+                            ecommerce_apparels_prices['ASOMY_Close']  / ecommerce_apparels_prices['HNNMY_Close'],
+                            ecommerce_apparels_prices['EBAY_Close']   / ecommerce_apparels_prices['URBN_Close']])
 
 close_pairs = close_pairs.swapaxes("index", "columns")
 close_pairs.columns = pair_names
@@ -156,14 +185,16 @@ close_pairs.columns = pair_names
 
 
 
+
+
 ## TODO close pairs to pickle
 
-# close_pairs.to_pickle("data/backtest/close_pairs.pkl")
+close_pairs.to_pickle("data/backtest/close_pairs.pkl")
 
-close_names = ['ASOMY_Close', 'GPS_Close', 'HNNMY_Close', 'URBN_Close', 'ETSY_Close', 'JWN_Close', 'TJX_Close']
+close_names = ['ASOMY_Close', 'GPS_Close', 'HNNMY_Close', 'URBN_Close', 'EBAY_Close', 'JWN_Close', 'TJX_Close']
 apparels_closes = ecommerce_apparels_prices[close_names]
 
-# apparels_closes.to_pickle("data/backtest/apparels_closes.pkl")
+apparels_closes.to_pickle("data/backtest/apparels_closes.pkl")
 
 def find_actual_dates(col_name1, col_name2):
     actual_releases_index1 = ecommerce_apparels_actuals_pivot_by_tickers[col_name1].dropna().index
@@ -172,21 +203,29 @@ def find_actual_dates(col_name1, col_name2):
     return actual_releases_index
 actual_dates =[]
 
-actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_ASOS.L_EPS', 'estimates_actuals_Actual Value_GPS_EPS'))
-actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_ASOS.L_EPS', 'estimates_actuals_Actual Value_ETSY.O_EPS'))
-actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_HMb.ST_EPS','estimates_actuals_Actual Value_URBN.O_EPS'))
-actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_ETSY.O_EPS','estimates_actuals_Actual Value_HMb.ST_EPS'))
-actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_JWN_EPS','estimates_actuals_Actual Value_TJX_EPS'))
-actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_ASOS.L_EPS','estimates_actuals_Actual Value_TJX_EPS'))
-actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_JWN_EPS','estimates_actuals_Actual Value_URBN.O_EPS'))
+actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_ASOS.L_EPS', 'estimates_actuals_Actual Value_TJX_EPS'))
+actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_GPS_EPS', 'estimates_actuals_Actual Value_JWN_EPS'))
+actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_EBAY.O_EPS','estimates_actuals_Actual Value_GPS_EPS'))
+actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_ASOS.L_EPS','estimates_actuals_Actual Value_HMb.ST_EPS'))
+actual_dates.append(find_actual_dates('estimates_actuals_Actual Value_EBAY.O_EPS','estimates_actuals_Actual Value_URBN.O_EPS'))
+
 
 # print("ASOS actuals releases date" + str(ecommerce_apparels_actuals_pivot_by_tickers['estimates_actuals_Actual Value_ASOS.L_EPS'].dropna().index.tolist()))
+li_pair_stop_trade_dfs = []
 for i, pair in enumerate(close_pairs.columns):
     plt.plot(close_pairs[pair])
     plt.title(pair_names[i])
     [plt.axvline(x, color='r', lw=0.5) for x in actual_dates[i]]
     plt.savefig('data/ratios/' + pair_names[i] + 'ratio.png', dpi=f.dpi*2)
     plt.close()
+    stop_dates = actual_dates[i].copy().to_frame()
+    # print(stop_dates.to_frame())
+    stop_dates.index = stop_dates.index.shift(-1, freq='D')
+    pair_stop_trade = pd.merge_asof(close_pairs[pair].sort_index(), stop_dates.sort_index(),  left_index=True, right_index=True,
+                                                  direction='forward', tolerance=pd.Timedelta('1d'))
+    li_pair_stop_trade_dfs.append(pair_stop_trade)
+
+pickle.dump(li_pair_stop_trade_dfs, open("data/backtest/li_pair_stop_trade_dfs.pkl", 'wb'))
     # plt.show()
     # print(actual_releases_index)
 #ecommerce_apparels_estimatesActuals = estimatesActuals_pivot_by_tickers[list(set(estimatesActuals_pivot_by_tickers.columns).difference(set(["Ticker"])))]
@@ -211,34 +250,29 @@ online_traffic = pd.merge_asof(apparels_apps_pivot_by_apps.sort_index(),apparels
                                                   direction='forward', tolerance=pd.Timedelta('1d'))
 
 
-actuals_ticker_list = [['ASOS.L_REV', 'GPS_REV'],
-                       ['ASOS.L_REV', 'ETSY.O_REV'],
-                       ['HMb.ST_REV', 'URBN.O_REV'],
-                       ['ETSY.O_REV', 'HMb.ST_REV'],
-                       ['JWN_REV'   , 'TJX_REV'],
-                       ['ASOS.L_REV', 'TJX_REV'],
-                       ['JWN_REV'   , 'URBN.O_REV']]
+actuals_ticker_list = [['ASOS.L_REV', 'TJX_REV'],
+                       ['GPS_REV', 'JWN_REV'],
+                       ['EBAY.O_REV', 'GPS_REV'],
+                       ['ASOS.L_REV', 'HMb.ST_REV'],
+                       ['EBAY.O_REV'   , 'URBN.O_REV']]
 
-## missing H&M on similar web
-traffic_ticker_list = [['ASC', 'GPS'],
-                       ['ASC', 'ETSY'],
-                       ['missing', 'URBN US'],
-                       ['ETSY', 'missing'],
-                       ['JWN_US', 'TJX US'],
-                       ['ASC', 'TJX US'],
-                       ['JWN US', 'URBN US']]
+traffic_ticker_list = [['ASC', 'TJX US'],
+                       ['GPS', 'JWN US'],
+                       ['EBAY US', 'GPS'],
+                       ['ASC', 'missing'],
+                       ['EBAY US', 'URBN US']]
 
-close_pairs_tickers = [['ASOMY_Close', 'GPS_Close'],
-                        ['ASOMY_Close', 'ETSY_Close'],
-                        ['HNNMY_Close', 'URBN_Close'],
-                        ['ETSY_Close', 'HNNMY_Close'],
-                        ['JWN_Close', 'TJX_Close'],
-                        ['ASOMY_Close','TJX_Close'],
-                        ['JWN_Close', 'URBN_Close']]
+close_pairs_tickers = [['ASOMY_Close','TJX_Close'],
+                           ['GPS_Close','JWN_Close'],
+                           ['EBAY_Close','GPS_Close'],
+                           ['ASOMY_Close','HNNMY_Close'],
+                           ['EBAY_Close','URBN_Close']]
+
+
 
 traffic_close_price_mapping = {'ASC': 'ASOMY_Close',
                                'GPS': 'GPS_Close',
-                               'ETSY': 'ETSY_Close',
+                               'EBAY US' : 'EBAY_Close',
                                'URBN US': 'URBN_Close',
                                'JWN US': 'JWN_Close',
                                'TJX US': 'TJX_Close'}
@@ -336,6 +370,8 @@ for i, idx_list in enumerate(actual_dates):
 
     two_hundred_li = pair_specific_online_traffic_200_MA.columns.tolist()
 
+
+
     for d, ten_ma in enumerate(pair_specific_online_traffic_10_MA):
         fig, axs = plt.subplots(3,1)
         axs[0].plot(pair_specific[ten_ma], color='r')
@@ -370,16 +406,18 @@ for i, idx_list in enumerate(actual_dates):
         temp2 = pd.merge_asof(rev2, est2.fillna(method='ffill').shift(1), left_index=True, right_index=True,
                                    direction='forward', tolerance=pd.Timedelta('1d'))
 
+
         temp2['actual_minus_est'] = temp2[rev2.columns.tolist()[0]] - temp2[est2.columns.tolist()[0]]
 
         ae_sides_2 = pd.DataFrame(np.sign(temp2['actual_minus_est'].dropna()), index=np.sign(temp2['actual_minus_est'].dropna()).index)
         ae_sides_2['actual_dates'] = ae_sides_2.index
 
+
         figure = plt.gcf()
         figure.set_size_inches(12, 8)
         # plt.show()
 
-        # plt.savefig("data/revenues/move_avgs/" + "200_" + ten_ma + ".png",  dpi = 100)
+        plt.savefig("data/revenues/move_avgs/" + "200_" + ten_ma + ".png",  dpi = 100)
         plt.close()
 
         ## TODO to find the best MA pairs, we find the ones which are most correlated to close prices
@@ -393,34 +431,6 @@ for i, idx_list in enumerate(actual_dates):
         elif traffic_ticker_list[i][1] in ten_ma:
             # get_best_corr_func(traffic_ticker_list[i][1])
             signal_close_corr_df = signal_close_corr_df.append(get_best_corr_func2(traffic_ticker_list[i][1]))
-
-
-
-        """
-        if traffic_ticker_list[i][0] in ten_ma:
-            close_ticker = traffic_close_price_mapping[traffic_ticker_list[i][0]]
-            traffic_ticker = pair_specific[ten_ma]
-            close = apparels_closes[close_ticker]
-            signal_fast = pair_specific[ten_ma]
-            signal_slow = pair_specific[two_hundred_li[d]]
-            corr_check = pd.merge(close, signal_fast, left_index=True, right_index=True, how='inner')
-            corr = corr_check[close.name].corr(corr_check[signal_fast.name])
-            signal_close_corr_dict[signal_fast.name] = corr
-
-
-
-        elif traffic_ticker_list[i][1] in ten_ma:
-        
-            close_ticker = traffic_close_price_mapping[traffic_ticker_list[i][1]]
-            traffic_ticker = pair_specific[ten_ma]
-            close = apparels_closes[close_ticker]
-            signal_fast = pair_specific[ten_ma]
-            signal_slow = pair_specific[two_hundred_li[d]]
-            corr_check = pd.merge(close, signal_fast, left_index=True, right_index=True, how='inner')
-            corr = corr_check[close.name].corr(corr_check[signal_fast.name])
-            signal_close_corr_dict[signal_fast.name] = corr
-        """
-
 
 
 
@@ -453,6 +463,7 @@ for i, idx_list in enumerate(actual_dates):
         # comparables_tickers.append()
         if traffic_ticker_list[i][0] in ten_ma:
             traffic_signals.append((close_pairs_tickers[i][0], ten_ma, comparable1))
+            # print("it's the first loop", ten_ma)
             if comparable1['traffic_crosses'].equals(comparable1['actual_minus_est']):
                 successful_signals.append((stock_1, ten_ma))
                 # print(str(ten_ma) + " works !!")
@@ -479,7 +490,7 @@ signal_close_corr_df.drop_duplicates().to_csv("data/backtest/corr_signal_close.c
 
 
 ## TODO to pickle/ comment out if debug
-# pickle.dump(traffic_signals, open("data/backtest/traffic_signals.pkl", 'wb'))
+pickle.dump(traffic_signals, open("data/backtest/traffic_signals.pkl", 'wb'))
 
     # print(actual_dates_df)
 
@@ -487,7 +498,7 @@ signal_close_corr_df.drop_duplicates().to_csv("data/backtest/corr_signal_close.c
 
 
 ## TODO to pickle/ comment out if debug
-# pickle.dump(successful_signals, open("data/backtest/successful_signals.pkl", 'wb'))
+pickle.dump(successful_signals, open("data/backtest/successful_signals.pkl", 'wb'))
 
 ## TODO for 100MA/ 200MA crosses with sum
 ## [(['estimates_actuals_Actual Value_URBN.O_REV'], '100_MA_mobile_visit_duration_URBN US'),

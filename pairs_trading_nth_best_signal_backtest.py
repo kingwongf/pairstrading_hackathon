@@ -46,7 +46,7 @@ def backtest_singals(all_signals_df, signal_close_corr_df, n_most_corr_signals, 
         ticker, signal_name, signal_df = signal
         close_to_trade = apparels_closes[[col for col in apparels_closes.columns if ticker in col]]
         close_to_trade.columns = ['close']
-        signal_df.index = signal_df.index.shift(-1, freq='D')
+        signal_df.index = signal_df.index.shift(-1, freq='D') ## TODO enter position a day before actuals releases
 
         ## to calculate return, we need to cumsum the abs amount of the invested amount
         ret_cal = pd.merge_asof(-1 * signal_df['traffic_crosses'].sort_index(), close_to_trade.sort_index(),
@@ -97,6 +97,7 @@ cum_dollar_port = reduce(lambda X, x: pd.merge(X.sort_index(), x.sort_index(), l
 
 cum_dollar_port = cum_dollar_port.fillna(method='ffill')
 cum_dollar_port = cum_dollar_port.fillna(0)
+cum_dollar_port = cum_dollar_port.sort_values(by=cum_dollar_port.index[-1],axis=1, ascending=False)
 cum_dollar_port.to_csv("data/backtest/cum_dollar_port.csv")
 
 #cum_dollar_port.reset_index().drop("actual_dates", axis=1).plot()
@@ -105,10 +106,12 @@ cum_dollar_port.to_csv("data/backtest/cum_dollar_port.csv")
 #fig.savefig('test2png.png', dpi=100)
 #plt.show()
 
+print(port_stats.columns)
+port_stats = port_stats.sort_values(by=['return'], ascending=False)
 port_stats.to_csv("data/backtest/port_stats.csv")
 
-print(port_stats.sort_values(by=cum_dollar_port['return'],axis=1, ascending=False))
-print(cum_dollar_port.sort_values(by=cum_dollar_port.index[-1],axis=1, ascending=False))
+# print(port_stats.sort_values(by=port_stats['return'],axis=1, ascending=False))
+#print(cum_dollar_port.sort_values(by=cum_dollar_port.index[-1],axis=1, ascending=False))
 # print(cum_dollar_port.sort_values(cum_dollar_port.tail(1), axis=0, ascending=True, inplace=False, kind='quicksort', na_position='last'))
 
 '''
