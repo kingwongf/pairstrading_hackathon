@@ -50,19 +50,29 @@ flat_lit = list(itertools.chain.from_iterable(traffic_signals2_li))
 ## instead of all signals, we will use only the nth best once/ most correlated with close prices.
 
 trading_dollar = []
+invested_amounts = []
 # for signal in traffic_signals:
 for signal in traffic_signals3:
     ticker, signal_name, signal_df = signal
     close_to_trade = apparels_closes[[col for col in apparels_closes.columns if ticker in col]]
+    close_to_trade.columns = ['close']
     signal_df.index = signal_df.index.shift(-1, freq='D')
+    ## to calculate return, we need to cumsum the abs amount of the invested amount
+    ret_cal = pd.merge_asof(-1*signal_df['traffic_crosses'].sort_index(), close_to_trade.sort_index(), left_index=True, right_index=True,direction='forward')
+    ret_cal['invested'] = ret_cal['traffic_crosses'].abs()*ret_cal['close']
+    invested_per_signal = ret_cal.apply(np.sum, axis=0)['invested']
+    invested_amounts.append(invested_per_signal)
+    # print(ret_cal['invested'].apply(np.sum, axis=0))
     exit_pos_df = signal_df.copy().drop(['actual_minus_est'], axis=1)
     exit_pos_df.index  = exit_pos_df.index.shift(day_to_revert_pos+1, freq='D')
     exit_pos_df['reverse_pos'] = exit_pos_df['traffic_crosses']
     trading_pos = pd.merge(signal_df, exit_pos_df.drop('traffic_crosses', axis=1), left_index=True, right_index=True, how='outer')
-    close_to_trade.columns = ['close']
+
+
     trading_pos['net_trade'] = trading_pos['traffic_crosses'].fillna(0)*-1 + trading_pos['reverse_pos'].fillna(0)
     trading_df = pd.merge_asof(trading_pos, close_to_trade, left_index=True, right_index=True,direction='forward')
     trading_df['net_dollar_trade_' + signal_name] = trading_df['net_trade'] * trading_df['close']
+    # print(trading_pos, trading_df)
     trading_dollar.append(trading_df['net_dollar_trade_' + signal_name])
 
 
@@ -75,7 +85,7 @@ net_dollar_trade['net_pos'] = net_dollar_trade['net_trade'].cumsum()
 print(net_dollar_trade)
 
 
-
+print(invested_amounts)
 
 
 # print(close_pairs.head(5))
