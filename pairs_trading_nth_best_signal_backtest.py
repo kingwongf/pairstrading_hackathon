@@ -42,6 +42,10 @@ def backtest_singals(all_signals_df, signal_close_corr_df, n_most_corr_signals, 
 
     trading_dollar = []
     # for signal in traffic_signals:
+    print
+    # print(len(traffic_signals3))
+    # print(traffic_signals3[3][0])
+
     for signal in traffic_signals3:
         ticker, signal_name, signal_df = signal
         close_to_trade = apparels_closes[[col for col in apparels_closes.columns if ticker in col]]
@@ -74,7 +78,9 @@ def backtest_singals(all_signals_df, signal_close_corr_df, n_most_corr_signals, 
     net_dollar_trade['net_pos'] = net_dollar_trade['net_trade'].cumsum()
 
     total_invested_amount = reduce(lambda X,x : X+x , invested_amounts)
-    return total_invested_amount, net_dollar_trade['net_pos'].rename('n_' + str(n_most_corr_signals) + '_d_' + str(day_to_revert_pos) + '_net_pos')
+    return traffic_signals3[1][0], total_invested_amount, \
+           net_dollar_trade['net_pos'].rename('n_' + str(n_most_corr_signals) + '_d_' + str(day_to_revert_pos) + '_net_pos')
+
 
 
 
@@ -86,7 +92,8 @@ port_invested = []
 port_stats = pd.DataFrame([], columns=['port_name', 'PnL', 'return'])
 for n in range(1,23):
     for d in range(1,10):
-        nd_total_invested_amount, nd_port = backtest_singals(traffic_signals, signal_close_corr_df, n, d)
+        print(n, d)
+        ticker_name, nd_total_invested_amount, nd_port = backtest_singals(traffic_signals, signal_close_corr_df, n, d)
         port_tup = pd.Series([nd_port.name, nd_port[-1], nd_port[-1]/nd_total_invested_amount], ['port_name', 'PnL', 'return'])
         # print(port_tup)
         port_stats = port_stats.append([port_tup], ignore_index=True)
@@ -106,7 +113,7 @@ cum_dollar_port.to_csv("data/backtest/cum_dollar_port.csv")
 #fig.savefig('test2png.png', dpi=100)
 #plt.show()
 
-print(port_stats.columns)
+# print(port_stats.columns)
 port_stats = port_stats.sort_values(by=['return'], ascending=False)
 port_stats.to_csv("data/backtest/port_stats.csv")
 
