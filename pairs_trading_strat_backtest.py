@@ -27,6 +27,7 @@ def get_LB_touch(ts, LB):
 
 
 port_stats = pd.DataFrame([], columns=['port_name', 'PnL', 'return'])
+dollar_port_li = []
 for ind,pair in enumerate(li_pair_stop_trade_dfs):
     pair_name = pair.columns.tolist()[0]
 
@@ -117,6 +118,7 @@ for ind,pair in enumerate(li_pair_stop_trade_dfs):
     port_tup = pd.Series([pair[pair.columns.tolist()[0]].name, trading_df['net_port_position'][-1],
                           trading_df['net_port_position'][-1] / invested_amount[-1]],
                          ['port_name', 'PnL', 'return'])
+    dollar_port_li.append(trading_df['net_port_position'])
 
 #    print(port_tup)
 
@@ -125,3 +127,11 @@ for ind,pair in enumerate(li_pair_stop_trade_dfs):
 
 port_stats['return'] = np.power(port_stats['return'] + 1, 1/3) - 1
 print(port_stats)
+
+cum_dollar_port = reduce(lambda X, x: pd.merge(X.sort_index(), x.sort_index(), left_index=True, right_index=True,
+                                                   how='outer'), dollar_port_li)
+cum_dollar_port.index = pd.to_datetime(cum_dollar_port.index)
+cum_dollar_port = cum_dollar_port.fillna(method='ffill')
+cum_dollar_port = cum_dollar_port.fillna(0)
+cum_dollar_port = cum_dollar_port.sort_values(by=cum_dollar_port.index[-1],axis=1, ascending=False)
+cum_dollar_port.to_csv("data/backtest/pairs_trading_cum_dollar_port.csv")

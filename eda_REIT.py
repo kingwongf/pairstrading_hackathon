@@ -28,20 +28,22 @@ visits_pivot_by_area.columns = visits_pivot_by_area.columns.to_series().str.join
 #print(visits_pivot_by_area)
 visits_pivot_by_area_monthly = visits_pivot_by_area.resample('1M').sum()
 
-print(visits_pivot_by_area_monthly)
+# print(visits_pivot_by_area_monthly)
 
-'''
+
 REIT_price.date = REIT_price["Date"].map(lambda x: x.strftime('%Y-%m-%d'))
 REIT_price.index = pd.to_datetime(REIT_price.date)
 REIT_price.columns = REIT_price.columns.map(lambda x: "price_" + x)
 REIT_price_monthly = REIT_price.resample('1M').first()
 REIT_price_monthly.index = pd.to_datetime(REIT_price_monthly.price_Date)
+
 ## since we are missing 2018-10-01 to 2018-12-01 data for distance and demographics. We'll drop the correspondings in price and visits
 REIT_price_monthly_dropped = REIT_price_monthly.loc[(REIT_price_monthly.index < "2018-09-30") |(REIT_price_monthly.index > "2018-12-30")]
+
 #print(REIT_price_monthly_dropped)
 REIT_price_monthly_dropped['monthly_lookahead_ret'] = np.log(REIT_price_monthly_dropped['price_Adj Close']).diff(1).shift(-1)
 
-bin = np.sign(REIT_price_monthly_dropped['monthly_lookahead_ret'])
+# bin = np.sign(REIT_price_monthly_dropped['monthly_lookahead_ret'])
 #print(bin)
 
 
@@ -55,6 +57,7 @@ distance_percent_visits_pivot_by_area = distance.pivot_table(index=['distance_mo
 distance_travelled_pivot_by_borough = distance.pivot_table(index=['distance_month'], values=['distance_avg_distance_travelled'], columns=["distance_borough"], aggfunc=np.sum)
 distance_percent_visits_pivot_by_borough = distance.pivot_table(index=['distance_month'], values=['distance_%visitors'], columns=["distance_borough"], aggfunc=np.average)
 
+distance_list = [distance_travelled_pivot_by_area, distance_percent_visits_pivot_by_area, distance_travelled_pivot_by_borough, distance_percent_visits_pivot_by_borough]
 #print(distance_travelled_pivot_by_area, distance_percent_visits_pivot_by_area, distance_travelled_pivot_by_borough, distance_percent_visits_pivot_by_borough)
 
 demographics.month = demographics["month"].map(lambda x: x[0:4] + "-" + x[5:])
@@ -68,3 +71,6 @@ demographics_percent_visitors_pivot_by_area.columns = [reduce(operator.add, tup)
 #print(demographics_percent_visitors_pivot_by_area)
 
 '''
+
+master_li = [visits_pivot_by_area_monthly, REIT_price_monthly,
+             ]

@@ -42,7 +42,7 @@ def backtest_singals(all_signals_df, signal_close_corr_df, n_most_corr_signals, 
 
     trading_dollar = []
     # for signal in traffic_signals:
-    print
+    # print(flat_lit)
     # print(len(traffic_signals3))
     # print(traffic_signals3[3][0])
 
@@ -92,7 +92,7 @@ port_invested = []
 port_stats = pd.DataFrame([], columns=['port_name', 'PnL', 'return'])
 for n in range(1,23):
     for d in range(1,10):
-        print(n, d)
+        # print(n, d)
         ticker_name, nd_total_invested_amount, nd_port = backtest_singals(traffic_signals, signal_close_corr_df, n, d)
         port_tup = pd.Series([nd_port.name, nd_port[-1], nd_port[-1]/nd_total_invested_amount], ['port_name', 'PnL', 'return'])
         # print(port_tup)
@@ -101,11 +101,12 @@ for n in range(1,23):
         seek_best_comb.append(nd_port)
 cum_dollar_port = reduce(lambda X, x: pd.merge(X.sort_index(), x.sort_index(), left_index=True, right_index=True,
                                                    how='outer'), seek_best_comb)
-
+cum_dollar_port.index = pd.to_datetime(cum_dollar_port.index)
 cum_dollar_port = cum_dollar_port.fillna(method='ffill')
 cum_dollar_port = cum_dollar_port.fillna(0)
 cum_dollar_port = cum_dollar_port.sort_values(by=cum_dollar_port.index[-1],axis=1, ascending=False)
 cum_dollar_port.to_csv("data/backtest/cum_dollar_port.csv")
+cum_dollar_port.to_pickle("data/backtest/cum_dollar_port.pkl")
 
 #cum_dollar_port.reset_index().drop("actual_dates", axis=1).plot()
 #fig = plt.gcf()
@@ -115,7 +116,7 @@ cum_dollar_port.to_csv("data/backtest/cum_dollar_port.csv")
 
 # print(port_stats.columns)
 port_stats = port_stats.sort_values(by=['return'], ascending=False)
-port_stats.to_csv("data/backtest/port_stats.csv")
+# port_stats.to_csv("data/backtest/port_stats.csv")
 
 # print(port_stats.sort_values(by=port_stats['return'],axis=1, ascending=False))
 #print(cum_dollar_port.sort_values(by=cum_dollar_port.index[-1],axis=1, ascending=False))
